@@ -1,0 +1,21 @@
+{
+	"name" : "com.virtualcast.osccore",
+	"version" : "2.0.0",
+	"displayName" : "Open Sound Control Core (VirtualCast fork)",
+	"description" : "An Open Sound Control (OSC) protocol driver\n(Forked for VirtualCast)",
+	"unity" : "2022.1",
+	"unityRelease" : "",
+	"keywords" : [ "OSC" ],
+	"author" : {
+		"name" : "Stella Cannefax",
+		"email" : "stella@unity3d.com",
+		"url" : "https://github.com/stella3d/OscCore"
+	},
+	"samples" : [
+		{
+			"displayName" : "Basic Examples",
+			"description" : "Message Receive and Property Sender Examples",
+			"path" : "Samples~"
+		}
+	]
+}

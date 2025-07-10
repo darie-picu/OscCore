@@ -1,4 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
+
+[assembly:InternalsVisibleTo("OscCore.Tests.Editor")]
+[assembly:InternalsVisibleTo("OscCore.Tests.Runtime")]
 
 namespace OscCore
 {
@@ -12,6 +16,9 @@ namespace OscCore
         internal readonly byte* BufferPtr;
         internal readonly long* BufferLongPtr;
 
+        /// <summary>
+        /// Holds all parsed values.  After calling Parse(), this should have data available to read
+        /// </summary>
         public readonly OscMessageValues MessageValues;
 
         /// <summary>Create a new parser.</summary>
@@ -25,6 +32,55 @@ namespace OscCore
                 BufferLongPtr = (long*) ptr;
             }
             MessageValues = new OscMessageValues(Buffer, MaxElementsPerMessage);
+        }
+        
+        /// <summary>
+        /// Parse a single non-bundle message that starts at the beginning of the buffer
+        /// </summary>
+        /// <returns>The unaligned length of the message address</returns>
+        public int Parse()
+        {
+            // address length here doesn't include the null terminator and alignment padding.
+            // this is so we can look up the address by only its content bytes.
+            var addressLength = FindUnalignedAddressLength();
+            if (addressLength < 0)
+                return addressLength;    // address didn't start with '/'
+
+            var alignedAddressLength = (addressLength + 3) & ~3;
+            // if the null terminator after the string comes at the beginning of a 4-byte block,
+            // we need to add 4 bytes of padding
+            if (alignedAddressLength == addressLength)
+                alignedAddressLength += 4;
+
+            var tagSize = ParseTags(Buffer, alignedAddressLength) + 3 & ~3;
+            var offset = alignedAddressLength + tagSize;
+            FindOffsets(offset);
+            return addressLength;
+        }
+        
+        /// <summary>
+        /// Parse a single non-bundle message that starts at the given byte offset from the start of the buffer
+        /// </summary>
+        /// <returns>The unaligned length of the message address</returns>
+        public int Parse(int startingByteOffset)
+        {
+            // address length here doesn't include the null terminator and alignment padding.
+            // this is so we can look up the address by only its content bytes.
+            var addressLength = FindUnalignedAddressLength(startingByteOffset);
+            if (addressLength < 0)
+                return addressLength;    // address didn't start with '/'
+
+            var alignedAddressLength = (addressLength + 3) & ~3;
+            // if the null terminator after the string comes at the beginning of a 4-byte block,
+            // we need to add 4 bytes of padding
+            if (alignedAddressLength == addressLength)
+                alignedAddressLength += 4;
+
+            var startPlusAlignedLength = startingByteOffset + alignedAddressLength;
+            var tagSize = ParseTags(Buffer, startPlusAlignedLength) + 3 & ~3;
+            var offset = startPlusAlignedLength + tagSize;
+            FindOffsets(offset);
+            return addressLength;
         }
 
         internal static bool AddressIsValid(string address)
@@ -51,7 +107,7 @@ namespace OscCore
             return true;
         }
         
-        public static bool CharacterIsValidInAddress(char c)
+        internal static bool CharacterIsValidInAddress(char c)
         {
             switch (c)
             {
@@ -109,8 +165,9 @@ namespace OscCore
 
             return AddressType.Pattern;
         }
-        
-        public int ParseTags(byte[] bytes, int start = 0)
+
+        /// <returns> Size of tags in bytes, including ',' </returns>
+        internal int ParseTags(byte[] bytes, int start = 0)
         {
             if (bytes[start] != Constant.Comma) return 0;
             
@@ -127,45 +184,18 @@ namespace OscCore
             }
 
             MessageValues.ElementCount = outIndex;
-            return outIndex;
+
+            // +1 for the starting ',' in the tagSize,
+            // +1 for null terminator 
+            return outIndex + 2; 
         }
 
-        public static int FindArrayLength(byte[] bytes, int offset = 0)
-        {
-            if ((TypeTag) bytes[offset] != TypeTag.ArrayStart)
-                return -1;
-            
-            var index = offset + 1;
-            while (bytes[index] != (byte) TypeTag.ArrayEnd)
-                index++;
-
-            return index - offset;
-        }
-        
-        public static int FindAddressLength(byte[] bytes, int offset = 0)
-        {
-            if (bytes[offset] != Constant.ForwardSlash)
-                return -1;
-            
-            var index = offset + 1;
-
-            byte b = bytes[index];
-            while (b != byte.MinValue)
-            {
-                b = bytes[index];
-                index++;
-            }
-
-            var length = index - offset;
-            return length;
-        }
-        
-        public int FindAddressLength()
+        public int FindUnalignedAddressLength()
         {
             if (BufferPtr[0] != Constant.ForwardSlash)
                 return -1;
             
-            var index = 0;
+            var index = 1;
             do
             {
                 index++;
@@ -174,7 +204,7 @@ namespace OscCore
             return index;
         }
         
-        public int FindAddressLength(int offset)
+        public int FindUnalignedAddressLength(int offset)
         {
             if (BufferPtr[offset] != Constant.ForwardSlash)
                 return -1;
@@ -196,13 +226,32 @@ namespace OscCore
             int index;
             for (index = offset; index < end; index++)
             {
-                if (Buffer[index] != 0) break;
+                if (Buffer[index] == 0) break;
             }
 
-            var length = index - offset;
+            // NOTE: add +1 for null terminator
+            var length = index - offset + 1;
             return (length + 3) & ~3;            // align to 4 bytes
         }
 
+        private int ReadBlobSize(int offset)
+        {
+            var blobSizeSlice = new Span<byte>(Buffer, offset, sizeof(int));
+            // NOTE: received int bytes is big-endian
+            if (!BitConverter.IsLittleEndian)
+            {
+                return BitConverter.ToInt32(blobSizeSlice);
+            }
+
+            // NOTE: bytes need to be reversed if computer architecture is little-endian
+            Span<byte> swapBuffer = stackalloc byte[4];
+            blobSizeSlice.CopyTo(swapBuffer);
+            swapBuffer.Reverse();
+            return BitConverter.ToInt32(swapBuffer);
+        }
+        
+        /// <summary>Find the byte offsets for each element of the message</summary>
+        /// <param name="offset">The byte index of the first value</param>
         public void FindOffsets(int offset)
         {
             var tags = MessageValues.Tags;
@@ -230,17 +279,34 @@ namespace OscCore
                         offset += GetStringLength(offset);
                         break;
                     case TypeTag.Blob:
-                        // read the int that specifies the size of the blob
-                        offset += 4 + *(int*)(BufferPtr + offset);
+                        // NOTE: total size of OSC-blob is aligned to multiple of 32 bits
+                        offset += (sizeof(int) + ReadBlobSize(offset) + 3) & ~3;
                         break;
                 }
             }
         }
 
+        /// <summary>
+        /// Test if '#bundle ' is present at a given index in the buffer 
+        /// </summary>
+        /// <param name="index">The index in the buffer to test</param>
+        /// <returns>True if present, false otherwise</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsBundleTagAtIndex(int index)
         {
             return *((long*) BufferPtr + index) == Constant.BundlePrefixLong;
+        }
+        
+        public static int FindArrayLength(byte[] bytes, int offset = 0)
+        {
+            if ((TypeTag) bytes[offset] != TypeTag.ArrayStart)
+                return -1;
+            
+            var index = offset + 1;
+            while (bytes[index] != (byte) TypeTag.ArrayEnd)
+                index++;
+
+            return index - offset;
         }
     }
 }

@@ -1,17 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using BlobHandles;
 
 namespace OscCore
 {
-    enum AddressType
-    {
-        Invalid,
-        Pattern,
-        Address
-    }
-
     public sealed class OscAddressSpace
     {
         const int k_DefaultPatternCapacity = 8;
@@ -28,6 +20,8 @@ namespace OscCore
         readonly Dictionary<string, int> PatternStringToIndex = new Dictionary<string, int>();
 
         public int HandlerCount => AddressToMethod.HandleToValue.Count;
+
+        public IEnumerable<string> Addresses => AddressToMethod.SourceToBlob.Keys;
 
         public OscAddressSpace(int startingCapacity = k_DefaultCapacity)
         {
