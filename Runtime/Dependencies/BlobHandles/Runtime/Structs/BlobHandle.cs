@@ -6,7 +6,7 @@ namespace BlobHandles
 {
     /// <summary>
     /// Wraps an arbitrary chunk of bytes in memory, so it can be used as a hash key
-    /// and compared against other instances of the same set of bytes 
+    /// and compared against other instances of the same set of bytes.
     /// </summary>
     public unsafe struct BlobHandle : IEquatable<BlobHandle>
     {
@@ -14,7 +14,7 @@ namespace BlobHandles
         public readonly byte* Pointer;
         /// <summary>The number of bytes in the blob</summary>
         public readonly int Length;
-
+        
         public BlobHandle(byte* pointer, int length)
         {
             Pointer = pointer;
@@ -68,20 +68,6 @@ namespace BlobHandles
                 Length = length;
             }
         }
-        
-        public override string ToString()
-        {
-            return $"{Length.ToString()} bytes @ {new IntPtr(Pointer).ToString()}";
-        }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return Length * 397 ^ Pointer[Length - 1];
-            }
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(BlobHandle other)
@@ -95,38 +81,37 @@ namespace BlobHandles
             return obj is BlobHandle other && Equals(other);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(BlobHandle left, BlobHandle right)
         {
             return left.Length == right.Length && 
                    MemoryCompare(left.Pointer, right.Pointer, (UIntPtr) left.Length) == 0;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(BlobHandle left, BlobHandle right)
         {
             return left.Length != right.Length || 
                    MemoryCompare(left.Pointer, right.Pointer, (UIntPtr) left.Length) != 0;
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return Length * 397 ^ Pointer[Length - 1];
+            }
+        }
+        
+        public override string ToString()
+        {
+            return $"{Length.ToString()} bytes @ {new IntPtr(Pointer).ToString()}";
+        }
                 
-#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
         // comparing bytes using memcmp has shown to be several times faster than any other method i've found
         [DllImport("msvcrt.dll", EntryPoint = "memcmp")]
         static extern int MemoryCompare(void* ptr1, void* ptr2, UIntPtr count);
-#else
-        static int MemoryCompare(void* ptr1, void* ptr2, UIntPtr count)
-        {
-            var p1 = new Span<byte>(ptr1, (int) count);
-            var p2 = new Span<byte>(ptr2, (int) count);
-            for (int i = 0; i < p1.Length; i++)
-            {
-                if (p1[i] != p2[i])
-                {
-                    return 1;
-                }
-            }
-            return 0;
-        }
-#endif
-
     }
 }
 

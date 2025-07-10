@@ -1,13 +1,11 @@
 {
     "name": "BlobHandles.Runtime",
     "references": [],
+    "optionalUnityReferences": [],
     "includePlatforms": [
-        "Android",
         "Editor",
-        "iOS",
         "LinuxStandalone64",
         "macOSStandalone",
-        "WindowsStandalone32",
         "WindowsStandalone64"
     ],
     "excludePlatforms": [],
@@ -16,6 +14,5 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+    "versionDefines": []
 }

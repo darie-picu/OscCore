@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Unity.IL2CPP.CompilerServices.BlobHandles;
+using Unity.IL2CPP.CompilerServices;
 
 namespace BlobHandles
 {
@@ -25,7 +25,6 @@ namespace BlobHandles
         /// <summary>Converts a string into a BlobString and adds it and the value to the dictionary</summary>
         /// <param name="str">The string to add</param>
         /// <param name="value">The value to associate with the key</param>
-        [Il2CppSetOption(Option.NullChecks, false)]
         public void Add(string str, T value)
         {
             if (str == null || SourceToBlob.ContainsKey(str)) 
@@ -76,6 +75,7 @@ namespace BlobHandles
             return HandleToValue.TryGetValue(new BlobHandle(ptr, byteCount), out value);
         }
 
+        [Il2CppSetOption(Option.NullChecks, false)]
         public void Clear()
         {
             HandleToValue.Clear();

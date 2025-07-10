@@ -1,6 +1,6 @@
 {
 	"name": "com.stretchsense.osccore",
-	"version": "2.2.0",
+	"version": "2.3.0",
 	"displayName": "Open Sound Control Core (VirtualCast fork)",
 	"description": "An Open Sound Control (OSC) protocol driver\n(Forked for VirtualCast and Forked for UPM packaging)",
 	"unity": "2022.1",

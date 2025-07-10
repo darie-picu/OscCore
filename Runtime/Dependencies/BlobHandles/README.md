@@ -5,21 +5,13 @@ They allow you to do two main things:
 1) Use a sequence of bytes as a hash key, like in a `Dictionary<BlobHandle, T>`.
 2) Quickly compare two handles' slices of memory for equality
 
-## Compatibility
-
-Any release will be tested against these versions, _(italics in parentheses)_ indicates the version when written
-- Latest **LTS** -  _(2018.4.11f1)_
-- Latest **Official Release** -  _(2019.2.9f1)_
-
-Primarily tested on windows, but should work on any platform that lets you use pointers.
-
 ## Blob Strings
 This also includes _BlobString_, a wrapper around `BlobHandle` that points to an unmanaged representation of a string. 
 
 _BlobString_ is designed for use cases that involve reading strings from an unmanaged source (network / disk) & comparing them against some sort of hash set.  
 
 Set the `BlobString.Encoding` property to change the encoding used for strings.  
-It's recommended to pick an encoding on startup and not change it after you've encoded any strings, unless you dispose all of them before changing the encoding. 
+It's recommended to pick an encoding on startup and not change it after you've encoded at least 1 string. 
 
 ## Dictionaries
 
@@ -55,7 +47,7 @@ HashSets of _BlobHandle_ are another use, and also get their own extension metho
 
 #### ContainsBlob()
 
-`HashSet<BlobHandle>` gets a method, `ContainsBlob()`, that allows using a segment of bytes as the key to a `.Contains()` check, using the same pattern as the dictionary `TryGetValueFromBytes<T>` method.
+`HashSet<BlobHandle>` gets a method, `ContainsBlob()`, that allows using a segment of bytes as the key to contains check, using the same pattern as the dictionary `TryGetValueFromBytes<T>` method.
 ```csharp
  HashSet<BlobHandle> m_HandleSet = new HashSet<BlobHandle>();        
  byte[] m_Buffer = new byte[64];
@@ -74,12 +66,6 @@ HashSets of _BlobHandle_ are another use, and also get their own extension metho
 There are the same [overloads for ContainsBlob()](Runtime/Dictionary/BlobHandleHashSet.ContainsBlob.cs) as the dictionary method.
 
 ## Performance Details
-
-###### Runtimes
-
-`BlobHandle` is significantly faster under Mono than IL2CPP in my testing on Windows x64, 2019.1.14.  
-
-However, it still performs fine under IL2CPP.  
 
 ###### Memory & Constructors
 `BlobHandle` is an immutable struct with only a pointer & a length.  This means
@@ -107,10 +93,6 @@ The included method for getting a blob handle's hash code uses the length of the
 This was the fastest method I tested on my data, and it should work well on any data that doesn't have a lot of entries of the same length that _also_ end in the same byte.  
 
 You may be able to get better performance with a different method, especially if your data is different.
-
-###### IL2CPP Options
-An [attribute](https://docs.unity3d.com/Manual/IL2CPP-CompilerOptions.html) is used to disable IL2CPP null checks in some methods of `BlobStringDictionary<T>`.  
-The only managed objects inside those methods are _readonly_ members of the class, and initialized when the dictionary is, so they should always not be null.
 
 ###### Tests
 Performance tests for BlobHandles include, but are not limited to:
